@@ -30,6 +30,8 @@ export function generateScripts(graph: any): string {
         let filteredNodeIds = null; // null = show all, Set = show only filtered
         let matchedNodeIds = new Set(); // nodes that matched the search query
         let selectedFolder = null; // Currently selected/highlighted folder
+        let selectedNode = null; // Currently selected node for path highlighting
+        let dependencyPathIds = new Set(); // Nodes in the dependency path of selected node
 
         // State initialization
         ${stateInitialization}

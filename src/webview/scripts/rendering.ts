@@ -63,14 +63,16 @@ export const renderingCode = `
     }
 
     // Helper function to draw a node
-    function drawNode(node) {
+    function drawNode(node, isSelected) {
         if (!isNodeVisible(node)) return;
 
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
 
-        // Color logic: yellow for matched, red for changed, cyan for dependencies
-        if (matchedNodeIds.has(node.id)) {
+        // Color logic: white for selected, yellow for matched, red for changed, cyan for dependencies
+        if (isSelected) {
+            ctx.fillStyle = '#ffffff'; // White for selected node
+        } else if (matchedNodeIds.has(node.id)) {
             ctx.fillStyle = '#ffd93d'; // Yellow for search matches
         } else if (node.isChanged) {
             ctx.fillStyle = '#ff6b6b'; // Red for changed files
@@ -79,6 +81,21 @@ export const renderingCode = `
         }
 
         ctx.fill();
+
+        // Highlight dependency path nodes with glow
+        if (dependencyPathIds.has(node.id)) {
+            ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)'; // Yellow glow for path nodes
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        // Selected node gets a bright glow
+        if (isSelected) {
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -125,11 +142,18 @@ export const renderingCode = `
             }
         });
 
-        // Draw edges
-        ctx.strokeStyle = 'rgba(150, 150, 150, 0.4)';
-        ctx.lineWidth = 1.5;
+        // Draw non-path edges first (lower z-index)
         edges.forEach(edge => {
             if (!isEdgeVisible(edge)) return;
+
+            // Check if edge is part of dependency path
+            const isPathEdge = dependencyPathIds.has(edge.source.id) && dependencyPathIds.has(edge.target.id);
+
+            // Skip path edges for now, draw them later
+            if (isPathEdge) return;
+
+            ctx.strokeStyle = 'rgba(150, 150, 150, 0.4)';
+            ctx.lineWidth = 1.5;
 
             ctx.beginPath();
             ctx.moveTo(edge.source.x, edge.source.y);
@@ -157,23 +181,78 @@ export const renderingCode = `
             ctx.restore();
         });
 
-        // Draw nodes from non-selected folders
+        // Draw nodes from non-selected folders (excluding path nodes and selected node)
         nodes.forEach(node => {
+            if (node === selectedNode) return; // Draw selected node last
+            if (dependencyPathIds.has(node.id)) return; // Draw path nodes on top later
             if (!selectedFolder || node.folder !== selectedFolder.id) {
                 drawNode(node);
             }
         });
 
-        // Draw selected folder and its nodes on top
+        // Draw selected folder and its nodes on top (but not path nodes or selected node yet)
         if (selectedFolder) {
             drawFolder(selectedFolder, true);
 
-            // Draw nodes from selected folder on top
+            // Draw nodes from selected folder on top (excluding path nodes and selected node)
             nodes.forEach(node => {
+                if (node === selectedNode) return; // Draw selected node last
+                if (dependencyPathIds.has(node.id)) return; // Draw path nodes on top later
                 if (node.folder === selectedFolder.id) {
                     drawNode(node);
                 }
             });
+        }
+
+        // Draw path edges on top (higher z-index)
+        edges.forEach(edge => {
+            if (!isEdgeVisible(edge)) return;
+
+            // Check if edge is part of dependency path
+            const isPathEdge = dependencyPathIds.has(edge.source.id) && dependencyPathIds.has(edge.target.id);
+
+            // Only draw path edges
+            if (!isPathEdge) return;
+
+            ctx.strokeStyle = '#ffff00'; // Yellow for path (matches search highlighting)
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+            ctx.moveTo(edge.source.x, edge.source.y);
+            ctx.lineTo(edge.target.x, edge.target.y);
+            ctx.stroke();
+
+            // Draw arrow
+            const dx = edge.target.x - edge.source.x;
+            const dy = edge.target.y - edge.source.y;
+            const angle = Math.atan2(dy, dx);
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const arrowX = edge.source.x + (dx / dist) * (dist - edge.target.radius);
+            const arrowY = edge.source.y + (dy / dist) * (dist - edge.target.radius);
+
+            ctx.save();
+            ctx.translate(arrowX, arrowY);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-8, -4);
+            ctx.lineTo(-8, 4);
+            ctx.closePath();
+            ctx.fillStyle = '#ffff00';
+            ctx.fill();
+            ctx.restore();
+        });
+
+        // Draw path nodes on top (higher z-index, but not selected node yet)
+        nodes.forEach(node => {
+            if (node === selectedNode) return; // Draw selected node last
+            if (!dependencyPathIds.has(node.id)) return; // Only draw path nodes
+            drawNode(node);
+        });
+
+        // Draw selected node on top with highlight (highest z-index)
+        if (selectedNode) {
+            drawNode(selectedNode, true); // true = isSelected
         }
 
         ctx.restore();

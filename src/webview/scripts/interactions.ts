@@ -113,9 +113,14 @@ export const interactionsCode = `
             if (clickedNode) {
                 // Select the folder containing this node
                 selectedFolder = folderMap.get(clickedNode.folder);
+                // Select the node and highlight its dependency paths
+                selectedNode = clickedNode;
+                dependencyPathIds = findPathNodes([clickedNode.id]);
             } else {
                 // Clicking on empty space deselects
                 selectedFolder = null;
+                selectedNode = null;
+                dependencyPathIds = new Set();
             }
         }
 
@@ -124,7 +129,7 @@ export const interactionsCode = `
         draggedFolder = null;
     });
 
-    // Double click to open file
+    // Double click to open file or diff
     canvas.addEventListener('dblclick', (e) => {
         const rect = canvas.getBoundingClientRect();
         const mouseX = (e.clientX - rect.left - camera.x) / camera.zoom;
@@ -135,8 +140,10 @@ export const interactionsCode = `
                 (mouseX - node.x) ** 2 + (mouseY - node.y) ** 2
             );
             if (dist < node.radius) {
+                // Open diff for changed files, otherwise open file
+                const command = node.isChanged ? 'openFileDiff' : 'openFile';
                 vscode.postMessage({
-                    command: 'openFile',
+                    command: command,
                     path: node.path
                 });
                 return;

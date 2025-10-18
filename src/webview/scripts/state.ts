@@ -24,8 +24,8 @@ export const stateInitialization = `
     // Initialize nodes with physics properties
     graphData.nodes.forEach((node, index) => {
         const parentFolder = folderMap.get(node.folder);
-        const localX = (Math.random() - 0.5) * 100;
-        const localY = (Math.random() - 0.5) * 80;
+        const localX = (Math.random() - 0.5) * 200; // Increased from 100 for more spacing
+        const localY = (Math.random() - 0.5) * 160; // Increased from 80 for more spacing
 
         nodes.push({
             ...node,

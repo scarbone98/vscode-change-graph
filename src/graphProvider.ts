@@ -65,10 +65,49 @@ export class GraphProvider {
                         const doc = await vscode.workspace.openTextDocument(message.path);
                         await vscode.window.showTextDocument(doc);
                         break;
+                    case 'openFileDiff':
+                        await this.openFileDiff(message.path);
+                        break;
                 }
             },
             undefined,
             this.context.subscriptions
         );
+    }
+
+    private async openFileDiff(filePath: string): Promise<void> {
+        const fileUri = vscode.Uri.file(filePath);
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+        if (!workspaceFolder) {
+            return;
+        }
+
+        try {
+            // Get the git extension
+            const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports;
+            const git = gitExtension?.getAPI(1);
+
+            if (git && git.repositories.length > 0) {
+                const repo = git.repositories[0];
+
+                // Open diff with HEAD
+                await vscode.commands.executeCommand(
+                    'vscode.diff',
+                    vscode.Uri.parse(`git:/${filePath}?ref=HEAD`),
+                    fileUri,
+                    `${filePath} (Working Tree) ↔ HEAD`
+                );
+            } else {
+                // Fallback: just open the file if git is not available
+                const doc = await vscode.workspace.openTextDocument(fileUri);
+                await vscode.window.showTextDocument(doc);
+            }
+        } catch (error) {
+            console.error('Error opening diff:', error);
+            // Fallback: open the file
+            const doc = await vscode.workspace.openTextDocument(fileUri);
+            await vscode.window.showTextDocument(doc);
+        }
     }
 }

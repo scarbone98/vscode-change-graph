@@ -76,15 +76,15 @@ export const physicsCode = `
                     const dist = Math.sqrt(dx * dx + dy * dy);
 
                     // Moderate attraction to keep group cohesive
-                    if (dist > 80 && dist < 300) {
+                    if (dist > 120 && dist < 300) {
                         const force = 0.02;
                         node.vx += (dx / dist) * force;
                         node.vy += (dy / dist) * force;
                     }
 
-                    // Repulsion when too close
-                    if (dist < 80 && dist > 0) {
-                        const force = 400 / (dist * dist);
+                    // Repulsion when too close - increased spacing from 80 to 120
+                    if (dist < 120 && dist > 0) {
+                        const force = 600 / (dist * dist);
                         node.vx -= (dx / dist) * force;
                         node.vy -= (dy / dist) * force;
                     }
