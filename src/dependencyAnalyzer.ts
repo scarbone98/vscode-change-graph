@@ -9,6 +9,14 @@ export interface FileNode {
     label: string;
     path: string;
     isChanged: boolean;
+    folder: string; // Relative folder path from workspace root
+}
+
+export interface FolderGroup {
+    id: string;
+    label: string;
+    path: string;
+    nodeIds: string[];
 }
 
 export interface Edge {
@@ -20,6 +28,7 @@ export interface Edge {
 export interface DependencyGraph {
     nodes: FileNode[];
     edges: Edge[];
+    folders: FolderGroup[];
 }
 
 export class DependencyAnalyzer {
@@ -46,10 +55,35 @@ export class DependencyAnalyzer {
 
         console.log(`Created ${nodes.size} nodes and ${edges.length} edges`);
 
+        // Extract folder groups
+        const folders = this.extractFolderGroups(nodes);
+
         return {
             nodes: Array.from(nodes.values()),
-            edges: edges
+            edges: edges,
+            folders: folders
         };
+    }
+
+    private extractFolderGroups(nodes: Map<string, FileNode>): FolderGroup[] {
+        const folderMap = new Map<string, FolderGroup>();
+
+        for (const node of nodes.values()) {
+            const folderPath = path.dirname(node.id);
+
+            if (!folderMap.has(folderPath)) {
+                folderMap.set(folderPath, {
+                    id: folderPath,
+                    label: path.basename(folderPath) || 'root',
+                    path: folderPath,
+                    nodeIds: []
+                });
+            }
+
+            folderMap.get(folderPath)!.nodeIds.push(node.id);
+        }
+
+        return Array.from(folderMap.values());
     }
 
     private async processFile(
@@ -81,11 +115,13 @@ export class DependencyAnalyzer {
         const fileId = this.getFileId(filePath);
         console.log(`Processing ${ext} file: ${filePath} (isChanged: ${isChanged})`);
         if (!nodes.has(fileId)) {
+            const folderPath = path.dirname(fileId);
             nodes.set(fileId, {
                 id: fileId,
                 label: path.basename(filePath),
                 path: filePath,
-                isChanged: isChanged
+                isChanged: isChanged,
+                folder: folderPath
             });
         }
 
