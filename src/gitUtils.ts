@@ -11,6 +11,14 @@ export interface ChangedFile {
     status: string; // M (modified), A (added), D (deleted), etc.
 }
 
+export interface CommitInfo {
+    hash: string;
+    shortHash: string;
+    message: string;
+    author: string;
+    date: string;
+}
+
 export class GitUtils {
     private workspaceRoot: string;
 
@@ -141,6 +149,49 @@ export class GitUtils {
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to get files for commit ${commitRef}: ${error}`);
             return [];
+        }
+    }
+
+    async getRecentCommits(limit: number = 50): Promise<CommitInfo[]> {
+        try {
+            // Format: hash|short-hash|message|author|date
+            const format = '%H|%h|%s|%an|%ar';
+            const { stdout } = await execAsync(`git log --pretty=format:"${format}" -n ${limit}`, {
+                cwd: this.workspaceRoot
+            });
+
+            const commits: CommitInfo[] = [];
+            const lines = stdout.trim().split('\n').filter(line => line.length > 0);
+
+            for (const line of lines) {
+                const parts = line.split('|');
+                if (parts.length >= 5) {
+                    commits.push({
+                        hash: parts[0],
+                        shortHash: parts[1],
+                        message: parts[2],
+                        author: parts[3],
+                        date: parts[4]
+                    });
+                }
+            }
+
+            return commits;
+        } catch (error) {
+            console.error('Failed to get recent commits:', error);
+            return [];
+        }
+    }
+
+    async resolveCommitHash(ref: string): Promise<string | null> {
+        try {
+            const { stdout } = await execAsync(`git rev-parse ${ref}`, {
+                cwd: this.workspaceRoot
+            });
+            return stdout.trim();
+        } catch (error) {
+            console.error(`Failed to resolve commit ref ${ref}:`, error);
+            return null;
         }
     }
 }

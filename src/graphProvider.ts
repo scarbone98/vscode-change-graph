@@ -86,44 +86,126 @@ export class GraphProvider {
     }
 
     async showGraphForCommit() {
-        const commitRef = await vscode.window.showInputBox({
-            prompt: 'Enter commit reference (hash, branch, tag, HEAD~n, etc.)',
-            placeHolder: 'e.g., HEAD, HEAD~1, abc1234, main',
-            validateInput: (value) => {
-                if (!value.trim()) {
-                    return 'Please enter a commit reference';
-                }
-                return undefined;
-            }
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            vscode.window.showErrorMessage('No workspace folder open');
+            return;
+        }
+
+        const workspaceRoot = workspaceFolder.uri.fsPath;
+        const gitUtils = new GitUtils(workspaceRoot);
+
+        // Get recent commits
+        const commits = await gitUtils.getRecentCommits(50);
+
+        if (commits.length === 0) {
+            vscode.window.showErrorMessage('No commits found in repository');
+            return;
+        }
+
+        // Create QuickPick items with nice formatting
+        interface CommitQuickPickItem extends vscode.QuickPickItem {
+            commitHash: string;
+        }
+
+        const quickPickItems: CommitQuickPickItem[] = commits.map(commit => ({
+            label: `$(git-commit) ${commit.shortHash}`,
+            description: commit.message,
+            detail: `${commit.author} - ${commit.date}`,
+            commitHash: commit.hash
+        }));
+
+        // Add option to enter custom reference
+        const customRefItem: CommitQuickPickItem = {
+            label: '$(edit) Enter custom reference...',
+            description: 'Type a branch, tag, or commit hash manually',
+            detail: 'e.g., HEAD~1, main, abc1234',
+            commitHash: '__custom__'
+        };
+
+        quickPickItems.unshift(customRefItem);
+
+        const selected = await vscode.window.showQuickPick(quickPickItems, {
+            placeHolder: 'Select a commit to visualize',
+            matchOnDescription: true,
+            matchOnDetail: true
         });
 
-        if (commitRef) {
-            await this.showGraph(commitRef.trim());
+        if (!selected) {
+            return;
+        }
+
+        // Handle custom reference input
+        if (selected.commitHash === '__custom__') {
+            const commitRef = await vscode.window.showInputBox({
+                prompt: 'Enter commit reference (hash, branch, tag, HEAD~n, etc.)',
+                placeHolder: 'e.g., HEAD, HEAD~1, abc1234, main',
+                validateInput: (value) => {
+                    if (!value.trim()) {
+                        return 'Please enter a commit reference';
+                    }
+                    return undefined;
+                }
+            });
+
+            if (commitRef) {
+                await this.showGraph(commitRef.trim());
+            }
+        } else {
+            await this.showGraph(selected.commitHash);
         }
     }
 
+    private toGitUri(uri: vscode.Uri, ref: string): vscode.Uri {
+        return uri.with({
+            scheme: 'git',
+            path: uri.path,
+            query: JSON.stringify({
+                path: uri.fsPath,
+                ref: ref
+            })
+        });
+    }
+
     private async openFileDiff(filePath: string, commitRef?: string): Promise<void> {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) {
+            return;
+        }
+
         const fileUri = vscode.Uri.file(filePath);
+        const workspaceRoot = workspaceFolder.uri.fsPath;
 
         try {
             if (commitRef) {
-                // For specific commits, show a diff between commit and current version
-                // First, open the file at that commit
-                const commitFileUri = await vscode.commands.executeCommand<vscode.Uri>(
-                    'git.openFile',
-                    fileUri,
-                    commitRef
-                );
+                // For specific commits, show a diff between the commit and its parent
+                // This matches VS Code's git tab behavior
 
-                // If we got a URI back, show a diff between commit and current
-                if (commitFileUri) {
-                    await vscode.commands.executeCommand(
-                        'vscode.diff',
-                        commitFileUri,
-                        fileUri,
-                        `${path.basename(filePath)} (${commitRef.substring(0, 7)}) ↔ Current`
-                    );
+                const gitUtils = new GitUtils(workspaceRoot);
+
+                // Resolve the parent commit hash
+                const parentCommitHash = await gitUtils.resolveCommitHash(`${commitRef}~1`);
+                const commitHash = await gitUtils.resolveCommitHash(commitRef);
+
+                if (!parentCommitHash || !commitHash) {
+                    vscode.window.showErrorMessage('Failed to resolve commit references');
+                    return;
                 }
+
+                const shortHash = commitHash.substring(0, 7);
+                const shortParentHash = parentCommitHash.substring(0, 7);
+
+                // Create git URIs using proper JSON-encoded query
+                const parentUri = this.toGitUri(fileUri, parentCommitHash);
+                const commitUri = this.toGitUri(fileUri, commitHash);
+
+                // Show diff between parent and selected commit
+                await vscode.commands.executeCommand(
+                    'vscode.diff',
+                    parentUri,
+                    commitUri,
+                    `${path.basename(filePath)} (${shortParentHash} ↔ ${shortHash})`
+                );
             } else {
                 // Open diff with HEAD (current working tree changes)
                 await vscode.commands.executeCommand(
