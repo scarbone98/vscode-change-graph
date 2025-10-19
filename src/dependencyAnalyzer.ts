@@ -9,6 +9,7 @@ export interface FileNode {
     label: string;
     path: string;
     isChanged: boolean;
+    isKeystone: boolean; // Has outgoing edges but no incoming edges (foundational file)
     folder: string; // Relative folder path from workspace root
 }
 
@@ -55,6 +56,9 @@ export class DependencyAnalyzer {
 
         console.log(`Created ${nodes.size} nodes and ${edges.length} edges`);
 
+        // Identify keystone files (files with outgoing edges but no incoming edges)
+        this.identifyKeystoneFiles(nodes, edges);
+
         // Extract folder groups
         const folders = this.extractFolderGroups(nodes);
 
@@ -63,6 +67,29 @@ export class DependencyAnalyzer {
             edges: edges,
             folders: folders
         };
+    }
+
+    private identifyKeystoneFiles(nodes: Map<string, FileNode>, edges: Edge[]): void {
+        // Count incoming edges for each node
+        const incomingEdges = new Map<string, number>();
+        const outgoingEdges = new Map<string, number>();
+
+        for (const edge of edges) {
+            incomingEdges.set(edge.target, (incomingEdges.get(edge.target) || 0) + 1);
+            outgoingEdges.set(edge.source, (outgoingEdges.get(edge.source) || 0) + 1);
+        }
+
+        // Mark nodes as keystone if they have outgoing edges but no incoming edges
+        for (const node of nodes.values()) {
+            const hasIncoming = (incomingEdges.get(node.id) || 0) > 0;
+            const hasOutgoing = (outgoingEdges.get(node.id) || 0) > 0;
+
+            node.isKeystone = !hasIncoming && hasOutgoing;
+
+            if (node.isKeystone) {
+                console.log(`  Keystone file identified: ${node.label}`);
+            }
+        }
     }
 
     private extractFolderGroups(nodes: Map<string, FileNode>): FolderGroup[] {
@@ -121,6 +148,7 @@ export class DependencyAnalyzer {
                 label: path.basename(filePath),
                 path: filePath,
                 isChanged: isChanged,
+                isKeystone: false, // Will be set later after analyzing edges
                 folder: folderPath
             });
         }
@@ -146,10 +174,11 @@ export class DependencyAnalyzer {
                 if (resolvedPath && fs.existsSync(resolvedPath)) {
                     const importId = this.getFileId(resolvedPath);
 
-                    // Add edge
+                    // Add edge (reversed: dependency flows from imported file to importer)
+                    // If File B imports File A, edge goes A → B (A impacts B)
                     edges.push({
-                        source: fileId,
-                        target: importId,
+                        source: importId,  // File A (being imported)
+                        target: fileId,     // File B (importing file)
                         type: 'import'
                     });
 

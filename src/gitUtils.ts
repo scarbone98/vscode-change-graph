@@ -71,11 +71,19 @@ export class GitUtils {
             const lines = stdout.trim().split('\n').filter(line => line.length > 0);
 
             for (const line of lines) {
-                const status = line.substring(0, 2).trim();
+                // git status --porcelain format: XY filename
+                // X = staged status, Y = unstaged status
+                const stagedStatus = line.charAt(0);
+                const unstagedStatus = line.charAt(1);
                 const filePath = line.substring(3);
 
-                // Only include modified, added, or renamed files (not deleted)
-                if (status && !status.includes('D')) {
+                // Check if file is modified, added, or renamed (either staged or unstaged)
+                // Skip deleted files (D)
+                const hasChanges = (stagedStatus !== ' ' && stagedStatus !== 'D') ||
+                                   (unstagedStatus !== ' ' && unstagedStatus !== 'D');
+
+                if (hasChanges) {
+                    const status = stagedStatus !== ' ' ? stagedStatus : unstagedStatus;
                     const fullPath = path.join(this.workspaceRoot, filePath);
 
                     // Check if this is a directory (git reports untracked directories as a single entry)

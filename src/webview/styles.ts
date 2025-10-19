@@ -56,6 +56,30 @@ export const styles = `
         display: flex;
         gap: 4px;
     }
+    .path-filter-controls {
+        margin-top: 8px;
+        padding: 8px;
+        background: var(--vscode-editor-background);
+        border: 1px solid var(--vscode-panel-border);
+        border-radius: 4px;
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 4px 0;
+        cursor: pointer;
+        color: var(--vscode-foreground);
+        font-size: 13px;
+    }
+    .checkbox-label input[type="checkbox"] {
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
+    }
+    .checkbox-label span {
+        user-select: none;
+    }
     .legend {
         position: absolute;
         bottom: 10px;

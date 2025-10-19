@@ -22,6 +22,16 @@ export function generateWebviewContent(graph: any, commitRef?: string): string {
                 <button onclick="togglePhysics()">Toggle Physics</button>
             </div>
             <button onclick="clearFilter()">Clear Filter</button>
+            <div id="pathFilterControls" class="path-filter-controls" style="display: none;">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="showDependentsCheckbox" checked onchange="toggleDependents()" />
+                    <span>Show Dependents</span>
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="showDependenciesCheckbox" checked onchange="toggleDependencies()" />
+                    <span>Show Dependencies</span>
+                </label>
+            </div>
         </div>
         <div class="legend">
             <div class="legend-item">
@@ -31,6 +41,10 @@ export function generateWebviewContent(graph: any, commitRef?: string): string {
             <div class="legend-item">
                 <div class="legend-color" style="background: #ff6b6b;"></div>
                 <span>Changed Files</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #9b59b6; border: 2px solid #f39c12;"></div>
+                <span>Keystone Files</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background: #4ecdc4;"></div>

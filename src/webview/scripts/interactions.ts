@@ -115,12 +115,21 @@ export const interactionsCode = `
                 selectedFolder = folderMap.get(clickedNode.folder);
                 // Select the node and highlight its dependency paths
                 selectedNode = clickedNode;
-                dependencyPathIds = findPathNodes([clickedNode.id]);
+                // Reset filters to show both when selecting a new node
+                showDependents = true;
+                showDependencies = true;
+                document.getElementById('showDependentsCheckbox').checked = true;
+                document.getElementById('showDependenciesCheckbox').checked = true;
+                dependencyPathIds = findPathNodes([clickedNode.id], showDependents, showDependencies);
+                // Show the filter controls
+                document.getElementById('pathFilterControls').style.display = 'block';
             } else {
                 // Clicking on empty space deselects
                 selectedFolder = null;
                 selectedNode = null;
                 dependencyPathIds = new Set();
+                // Hide the filter controls
+                document.getElementById('pathFilterControls').style.display = 'none';
             }
         }
 

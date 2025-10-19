@@ -69,18 +69,28 @@ export const renderingCode = `
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
 
-        // Color logic: white for selected, yellow for matched, red for changed, cyan for dependencies
+        // Color logic: white for selected, yellow for matched, red for changed, purple for keystone, cyan for dependencies
+        // Priority: selected > matched > changed > keystone > dependencies
         if (isSelected) {
             ctx.fillStyle = '#ffffff'; // White for selected node
         } else if (matchedNodeIds.has(node.id)) {
             ctx.fillStyle = '#ffd93d'; // Yellow for search matches
         } else if (node.isChanged) {
-            ctx.fillStyle = '#ff6b6b'; // Red for changed files
+            ctx.fillStyle = '#ff6b6b'; // Red for changed files (highest priority)
+        } else if (node.isKeystone) {
+            ctx.fillStyle = '#9b59b6'; // Purple for keystone files (foundational)
         } else {
             ctx.fillStyle = '#4ecdc4'; // Cyan for dependencies
         }
 
         ctx.fill();
+
+        // Keystone nodes get a special golden border (even if changed, to show both attributes)
+        if (node.isKeystone && !isSelected && !matchedNodeIds.has(node.id)) {
+            ctx.strokeStyle = '#f39c12'; // Gold border for keystone files
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
 
         // Highlight dependency path nodes with glow
         if (dependencyPathIds.has(node.id)) {
@@ -96,9 +106,11 @@ export const renderingCode = `
             ctx.stroke();
         }
 
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        if (!node.isKeystone || isSelected) {
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
 
         // Draw label below the node
         ctx.fillStyle = '#fff';

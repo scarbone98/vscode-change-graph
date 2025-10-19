@@ -33,46 +33,52 @@ export function generateScripts(graph: any, commitRef?: string): string {
         let selectedNode = null; // Currently selected node for path highlighting
         let dependencyPathIds = new Set(); // Nodes in the dependency path of selected node
         let currentCommitRef = ${commitRef ? `'${commitRef}'` : 'null'}; // Current commit being visualized
+        let showDependents = true; // Show outgoing edges (files that depend on selected node)
+        let showDependencies = true; // Show incoming edges (files selected node depends on)
 
         // State initialization
         ${stateInitialization}
 
         // Find all nodes in the directed path - separate upstream and downstream
-        function findPathNodes(targetNodeIds) {
+        function findPathNodes(targetNodeIds, includeDependents = true, includeDependencies = true) {
             const visible = new Set(targetNodeIds);
 
-            // Upstream traversal: Find all dependencies (what matched nodes import)
-            const upstreamQueue = [...targetNodeIds];
-            const upstreamVisited = new Set(targetNodeIds);
+            // Upstream traversal: Find all dependents (what depends on matched nodes - outgoing edges)
+            if (includeDependents) {
+                const upstreamQueue = [...targetNodeIds];
+                const upstreamVisited = new Set(targetNodeIds);
 
-            while (upstreamQueue.length > 0) {
-                const currentId = upstreamQueue.shift();
+                while (upstreamQueue.length > 0) {
+                    const currentId = upstreamQueue.shift();
 
-                edges.forEach(edge => {
-                    // Go upstream: if current node imports something, add it
-                    if (edge.source.id === currentId && !upstreamVisited.has(edge.target.id)) {
-                        upstreamVisited.add(edge.target.id);
-                        visible.add(edge.target.id);
-                        upstreamQueue.push(edge.target.id);
-                    }
-                });
+                    edges.forEach(edge => {
+                        // Go upstream: if current node is source, follow to target (dependents)
+                        if (edge.source.id === currentId && !upstreamVisited.has(edge.target.id)) {
+                            upstreamVisited.add(edge.target.id);
+                            visible.add(edge.target.id);
+                            upstreamQueue.push(edge.target.id);
+                        }
+                    });
+                }
             }
 
-            // Downstream traversal: Find all dependents (what imports matched nodes)
-            const downstreamQueue = [...targetNodeIds];
-            const downstreamVisited = new Set(targetNodeIds);
+            // Downstream traversal: Find all dependencies (what matched nodes depend on - incoming edges)
+            if (includeDependencies) {
+                const downstreamQueue = [...targetNodeIds];
+                const downstreamVisited = new Set(targetNodeIds);
 
-            while (downstreamQueue.length > 0) {
-                const currentId = downstreamQueue.shift();
+                while (downstreamQueue.length > 0) {
+                    const currentId = downstreamQueue.shift();
 
-                edges.forEach(edge => {
-                    // Go downstream: if something imports current node, add it
-                    if (edge.target.id === currentId && !downstreamVisited.has(edge.source.id)) {
-                        downstreamVisited.add(edge.source.id);
-                        visible.add(edge.source.id);
-                        downstreamQueue.push(edge.source.id);
-                    }
-                });
+                    edges.forEach(edge => {
+                        // Go downstream: if current node is target, follow back to source (dependencies)
+                        if (edge.target.id === currentId && !downstreamVisited.has(edge.source.id)) {
+                            downstreamVisited.add(edge.source.id);
+                            visible.add(edge.source.id);
+                            downstreamQueue.push(edge.source.id);
+                        }
+                    });
+                }
             }
 
             return visible;
@@ -117,13 +123,42 @@ export function generateScripts(graph: any, commitRef?: string): string {
             matchedNodeIds = new Set();
         }
 
+        // Update dependency path when filters change
+        function updateDependencyPath() {
+            if (selectedNode) {
+                dependencyPathIds = findPathNodes([selectedNode.id], showDependents, showDependencies);
+            }
+        }
+
+        // Toggle dependents visibility
+        function toggleDependents() {
+            showDependents = document.getElementById('showDependentsCheckbox').checked;
+            updateDependencyPath();
+        }
+
+        // Toggle dependencies visibility
+        function toggleDependencies() {
+            showDependencies = document.getElementById('showDependenciesCheckbox').checked;
+            updateDependencyPath();
+        }
+
         // Check if node should be visible
         function isNodeVisible(node) {
+            // If a node is selected, only show nodes in the dependency path
+            if (selectedNode) {
+                return dependencyPathIds.has(node.id);
+            }
+            // Otherwise, use search filter
             return filteredNodeIds === null || filteredNodeIds.has(node.id);
         }
 
         // Check if edge should be visible
         function isEdgeVisible(edge) {
+            // If a node is selected, only show edges in the dependency path
+            if (selectedNode) {
+                return dependencyPathIds.has(edge.source.id) && dependencyPathIds.has(edge.target.id);
+            }
+            // Otherwise, use search filter
             return filteredNodeIds === null ||
                    (filteredNodeIds.has(edge.source.id) && filteredNodeIds.has(edge.target.id));
         }
