@@ -72,3 +72,4 @@ vsce package
 ## License
 
 MIT
+# vscode-change-graph
