@@ -1,7 +1,7 @@
 import { styles } from './styles';
 import { generateScripts } from './scripts';
 
-export function generateWebviewContent(graph: any): string {
+export function generateWebviewContent(graph: any, commitRef?: string): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,7 +39,7 @@ export function generateWebviewContent(graph: any): string {
         </div>
     </div>
 
-    ${generateScripts(graph)}
+    ${generateScripts(graph, commitRef)}
 </body>
 </html>`;
 }

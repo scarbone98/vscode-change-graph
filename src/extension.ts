@@ -6,11 +6,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     const graphProvider = new GraphProvider(context);
 
-    const disposable = vscode.commands.registerCommand('code-graph.showGraph', async () => {
+    const showGraphDisposable = vscode.commands.registerCommand('code-graph.showGraph', async () => {
         await graphProvider.showGraph();
     });
 
-    context.subscriptions.push(disposable);
+    const showGraphForCommitDisposable = vscode.commands.registerCommand('code-graph.showGraphForCommit', async () => {
+        await graphProvider.showGraphForCommit();
+    });
+
+    context.subscriptions.push(showGraphDisposable);
+    context.subscriptions.push(showGraphForCommitDisposable);
 }
 
 export function deactivate() {}

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { GitUtils } from './gitUtils';
 import { DependencyAnalyzer } from './dependencyAnalyzer';
 import { generateWebviewContent } from './webview';
@@ -11,7 +12,7 @@ export class GraphProvider {
         this.context = context;
     }
 
-    async showGraph() {
+    async showGraph(commitRef?: string) {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (!workspaceFolder) {
             vscode.window.showErrorMessage('No workspace folder open');
@@ -22,7 +23,15 @@ export class GraphProvider {
 
         // Get changed files
         const gitUtils = new GitUtils(workspaceRoot);
-        const changedFiles = await gitUtils.getChangedFiles();
+        let changedFiles;
+
+        if (commitRef) {
+            // Get files from specific commit
+            changedFiles = await gitUtils.getFilesChangedInCommit(commitRef);
+        } else {
+            // Get current working tree changes
+            changedFiles = await gitUtils.getChangedFiles();
+        }
 
         if (changedFiles.length === 0) {
             vscode.window.showInformationMessage('No changed files found');
@@ -54,8 +63,9 @@ export class GraphProvider {
             });
         }
 
-        // Update webview content
-        this.panel.webview.html = generateWebviewContent(graph);
+        // Update webview content and title
+        this.panel.webview.html = generateWebviewContent(graph, commitRef);
+        this.panel.title = commitRef ? `Code Graph - ${commitRef}` : 'Code Graph';
 
         // Handle messages from webview
         this.panel.webview.onDidReceiveMessage(
@@ -66,7 +76,7 @@ export class GraphProvider {
                         await vscode.window.showTextDocument(doc);
                         break;
                     case 'openFileDiff':
-                        await this.openFileDiff(message.path);
+                        await this.openFileDiff(message.path, message.commitRef);
                         break;
                 }
             },
@@ -75,39 +85,61 @@ export class GraphProvider {
         );
     }
 
-    private async openFileDiff(filePath: string): Promise<void> {
-        const fileUri = vscode.Uri.file(filePath);
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    async showGraphForCommit() {
+        const commitRef = await vscode.window.showInputBox({
+            prompt: 'Enter commit reference (hash, branch, tag, HEAD~n, etc.)',
+            placeHolder: 'e.g., HEAD, HEAD~1, abc1234, main',
+            validateInput: (value) => {
+                if (!value.trim()) {
+                    return 'Please enter a commit reference';
+                }
+                return undefined;
+            }
+        });
 
-        if (!workspaceFolder) {
-            return;
+        if (commitRef) {
+            await this.showGraph(commitRef.trim());
         }
+    }
+
+    private async openFileDiff(filePath: string, commitRef?: string): Promise<void> {
+        const fileUri = vscode.Uri.file(filePath);
 
         try {
-            // Get the git extension
-            const gitExtension = vscode.extensions.getExtension('vscode.git')?.exports;
-            const git = gitExtension?.getAPI(1);
-
-            if (git && git.repositories.length > 0) {
-                const repo = git.repositories[0];
-
-                // Open diff with HEAD
-                await vscode.commands.executeCommand(
-                    'vscode.diff',
-                    vscode.Uri.parse(`git:/${filePath}?ref=HEAD`),
+            if (commitRef) {
+                // For specific commits, show a diff between commit and current version
+                // First, open the file at that commit
+                const commitFileUri = await vscode.commands.executeCommand<vscode.Uri>(
+                    'git.openFile',
                     fileUri,
-                    `${filePath} (Working Tree) ↔ HEAD`
+                    commitRef
                 );
+
+                // If we got a URI back, show a diff between commit and current
+                if (commitFileUri) {
+                    await vscode.commands.executeCommand(
+                        'vscode.diff',
+                        commitFileUri,
+                        fileUri,
+                        `${path.basename(filePath)} (${commitRef.substring(0, 7)}) ↔ Current`
+                    );
+                }
             } else {
-                // Fallback: just open the file if git is not available
-                const doc = await vscode.workspace.openTextDocument(fileUri);
-                await vscode.window.showTextDocument(doc);
+                // Open diff with HEAD (current working tree changes)
+                await vscode.commands.executeCommand(
+                    'git.openChange',
+                    fileUri
+                );
             }
         } catch (error) {
             console.error('Error opening diff:', error);
-            // Fallback: open the file
-            const doc = await vscode.workspace.openTextDocument(fileUri);
-            await vscode.window.showTextDocument(doc);
+            // Fallback: just open the file normally
+            try {
+                const doc = await vscode.workspace.openTextDocument(fileUri);
+                await vscode.window.showTextDocument(doc);
+            } catch (fallbackError) {
+                vscode.window.showErrorMessage('Failed to open file');
+            }
         }
     }
 }

@@ -11,7 +11,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:code-graph.showGraph"
+    "onCommand:code-graph.showGraph",
+    "onCommand:code-graph.showGraphForCommit"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -20,6 +21,11 @@
         "command": "code-graph.showGraph",
         "title": "Code Graph: Show Dependency Graph",
         "icon": "$(graph)"
+      },
+      {
+        "command": "code-graph.showGraphForCommit",
+        "title": "Code Graph: Show Graph for Commit",
+        "icon": "$(git-commit)"
       }
     ]
   },

@@ -142,10 +142,15 @@ export const interactionsCode = `
             if (dist < node.radius) {
                 // Open diff for changed files, otherwise open file
                 const command = node.isChanged ? 'openFileDiff' : 'openFile';
-                vscode.postMessage({
+                const message = {
                     command: command,
                     path: node.path
-                });
+                };
+                // If viewing a commit, include the commit ref for diff
+                if (currentCommitRef) {
+                    message.commitRef = currentCommitRef;
+                }
+                vscode.postMessage(message);
                 return;
             }
         }

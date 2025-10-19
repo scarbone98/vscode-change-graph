@@ -3,7 +3,7 @@ import { physicsCode } from './physics';
 import { renderingCode } from './rendering';
 import { interactionsCode } from './interactions';
 
-export function generateScripts(graph: any): string {
+export function generateScripts(graph: any, commitRef?: string): string {
     return `
     <script>
         const vscode = acquireVsCodeApi();
@@ -32,6 +32,7 @@ export function generateScripts(graph: any): string {
         let selectedFolder = null; // Currently selected/highlighted folder
         let selectedNode = null; // Currently selected node for path highlighting
         let dependencyPathIds = new Set(); // Nodes in the dependency path of selected node
+        let currentCommitRef = ${commitRef ? `'${commitRef}'` : 'null'}; // Current commit being visualized
 
         // State initialization
         ${stateInitialization}
