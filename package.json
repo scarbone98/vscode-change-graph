@@ -1,8 +1,9 @@
 {
   "name": "code-graph",
-  "displayName": "Code Graph",
+  "displayName": "Code Diff Graph",
   "description": "Visualize changed files and their dependencies as an interactive graph",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "publisher": "ZeroplexInc",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -34,6 +35,10 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile"
+  },
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/scarbone98/vscode-change-graph"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
